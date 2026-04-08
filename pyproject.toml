@@ -1,0 +1,20 @@
+[project]
+name = "simple-http-proxy"
+version = "0.1.0"
+description = "HTTP forward proxy with traffic inspection and filtering"
+readme = "README.md"
+authors = [
+    { name = "Yanbin Qiu", email = "yanbin.qiu@morningstar.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "aiohttp>=3.10,<4.0",
+    "click>=8.1,<9.0",
+]
+
+[project.scripts]
+simple-http-proxy = "simple_http_proxy.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.10.7,<0.11.0"]
+build-backend = "uv_build"
