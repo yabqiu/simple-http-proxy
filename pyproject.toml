@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "HTTP forward proxy with traffic inspection and filtering"
 readme = "README.md"
 authors = [
-    { name = "Yanbin Qiu", email = "yanbin.qiu@morningstar.com" }
+    { name = "Yanbin Qiu", email = "yabqiu@gmail.com" }
 ]
 requires-python = ">=3.13"
 dependencies = [
