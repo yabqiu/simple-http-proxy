@@ -2,14 +2,29 @@ import asyncio
 
 import click
 
+from .certs import CertManager
 from .collector import Collector
 from .filters import parse_filter_config
-from .server import build_app, run_app
+from .server import run_app
 
 
 @click.command()
 @click.option("--host", default="127.0.0.1", show_default=True, help="Interface to listen on.")
-@click.option("--port", default=9090, show_default=True, help="Port to listen on.")
+@click.option("--port", default=1080, show_default=True, help="Port to listen on.")
+@click.option(
+    "--ca-cert",
+    "ca_cert",
+    type=click.Path(exists=True, dir_okay=False, readable=True),
+    default=None,
+    help="CA certificate file. Enables HTTPS interception (requires --ca-key).",
+)
+@click.option(
+    "--ca-key",
+    "ca_key",
+    type=click.Path(exists=True, dir_okay=False, readable=True),
+    default=None,
+    help="CA private key file. Enables HTTPS interception (requires --ca-cert).",
+)
 @click.option(
     "--filter-port",
     "filter_ports",
@@ -51,37 +66,45 @@ from .server import build_app, run_app
 def main(
     host: str,
     port: int,
+    ca_cert: str | None,
+    ca_key: str | None,
     filter_ports: tuple[int, ...],
     filter_srcs: tuple[str, ...],
     filter_dsts: tuple[str, ...],
     output_format: str,
     log_file: str,
 ) -> None:
-    """HTTP forward proxy with traffic inspection and filtering.
+    """HTTP/HTTPS forward proxy with traffic inspection and filtering.
 
     Configure your HTTP client to use this proxy, then all traffic
     will be captured and printed to stdout.
 
     \b
     Examples:
-      # Basic usage
-      http-proxy
+      # HTTP only
+      simple-http-proxy
 
-      # Only capture traffic to ports 80 and 8080
-      http-proxy --filter-port 80 --filter-port 8080
+      # HTTP + HTTPS interception
+      simple-http-proxy --ca-cert ca.crt --ca-key ca.key
 
-      # Only capture traffic from localhost to a specific subnet
-      http-proxy --filter-src 127.0.0.1 --filter-dst 10.0.0.0/8
+      # Only capture traffic to ports 80 and 443
+      simple-http-proxy --filter-port 80 --filter-port 443
 
       # JSON output (pipe to jq for pretty-printing)
-      http-proxy --format json | jq .
+      simple-http-proxy --format json | jq .
     """
+    if bool(ca_cert) != bool(ca_key):
+        raise click.UsageError("--ca-cert and --ca-key must be supplied together.")
+
     try:
         filter_config = parse_filter_config(filter_ports, filter_srcs, filter_dsts)
     except ValueError as e:
         raise click.BadParameter(str(e)) from e
 
+    cert_manager: CertManager | None = None
+    if ca_cert and ca_key:
+        cert_manager = CertManager(ca_cert, ca_key)
+
     collector = Collector(output_format=output_format, log_file=log_file)
     click.echo(f"Logging traffic to: {log_file}")
-    app = build_app(filter_config, collector)
-    asyncio.run(run_app(app, host, port))
+    asyncio.run(run_app(filter_config, collector, host, port, cert_manager))

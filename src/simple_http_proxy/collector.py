@@ -16,6 +16,7 @@ class RequestRecord:
     url: str
     headers: dict[str, str]
     body: bytes
+    is_https: bool = False
 
 
 @dataclass
@@ -71,12 +72,17 @@ class Collector:
 
     def _format_pretty(self, txn: TransactionRecord, seq: int) -> str:
         req = txn.request
+        req_color = "magenta" if req.is_https else "cyan"
         lines: list[str] = []
 
         ts = req.timestamp.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-        lines.append(f"\n{click.style(_SEP, fg='cyan')}")
-        lines.append(click.style(f"REQUEST  #{seq}  {ts}  {req.src_ip}:{req.src_port}", fg="cyan", bold=True))
-        lines.append(click.style(_SEP, fg="cyan"))
+        proto = "HTTPS" if req.is_https else "HTTP"
+        lines.append(f"\n{click.style(_SEP, fg=req_color)}")
+        lines.append(click.style(
+            f"REQUEST [{proto}]  #{seq}  {ts}  {req.src_ip}:{req.src_port}",
+            fg=req_color, bold=True,
+        ))
+        lines.append(click.style(_SEP, fg=req_color))
         lines.append(f"{req.method} {req.url}")
         for k, v in req.headers.items():
             lines.append(f"{k}: {v}")
@@ -85,9 +91,13 @@ class Collector:
 
         if txn.response is not None:
             resp = txn.response
-            lines.append(f"\n{click.style(_SEP, fg='green')}")
-            lines.append(click.style(f"RESPONSE  #{seq}  +{resp.elapsed_ms:.1f}ms", fg="green", bold=True))
-            lines.append(click.style(_SEP, fg="green"))
+            resp_color = "yellow" if req.is_https else "green"
+            lines.append(f"\n{click.style(_SEP, fg=resp_color)}")
+            lines.append(click.style(
+                f"RESPONSE [{proto}]  #{seq}  +{resp.elapsed_ms:.1f}ms",
+                fg=resp_color, bold=True,
+            ))
+            lines.append(click.style(_SEP, fg=resp_color))
             lines.append(f"{resp.status_code} {resp.status_reason}")
             for k, v in resp.headers.items():
                 lines.append(f"{k}: {v}")
@@ -95,7 +105,7 @@ class Collector:
             lines.append(_decode_body(resp.body))
         else:
             lines.append(f"\n{click.style(_SEP, fg='red')}")
-            lines.append(click.style(f"RESPONSE  #{seq}  (none — upstream error)", fg="red", bold=True))
+            lines.append(click.style(f"RESPONSE [{proto}]  #{seq}  (none — upstream error)", fg="red", bold=True))
 
         lines.append(_SEP)
         return "\n".join(lines)
@@ -106,8 +116,9 @@ class Collector:
         lines: list[str] = []
 
         ts = req.timestamp.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        proto = "HTTPS" if req.is_https else "HTTP"
         lines.append(f"\n{_SEP}")
-        lines.append(f"REQUEST  #{seq}  {ts}  {req.src_ip}:{req.src_port}")
+        lines.append(f"REQUEST [{proto}]  #{seq}  {ts}  {req.src_ip}:{req.src_port}")
         lines.append(_SEP)
         lines.append(f"{req.method} {req.url}")
         for k, v in req.headers.items():
@@ -118,7 +129,7 @@ class Collector:
         if txn.response is not None:
             resp = txn.response
             lines.append(f"\n{_SEP}")
-            lines.append(f"RESPONSE  #{seq}  +{resp.elapsed_ms:.1f}ms")
+            lines.append(f"RESPONSE [{proto}]  #{seq}  +{resp.elapsed_ms:.1f}ms")
             lines.append(_SEP)
             lines.append(f"{resp.status_code} {resp.status_reason}")
             for k, v in resp.headers.items():
@@ -127,7 +138,7 @@ class Collector:
             lines.append(_decode_body(resp.body, max_bytes=None))
         else:
             lines.append(f"\n{_SEP}")
-            lines.append(f"RESPONSE  #{seq}  (none — upstream error)")
+            lines.append(f"RESPONSE [{proto}]  #{seq}  (none — upstream error)")
 
         lines.append(_SEP)
         return "\n".join(lines)
@@ -137,6 +148,7 @@ class Collector:
         data: dict = {
             "seq": seq,
             "ts": req.timestamp.isoformat(),
+            "protocol": "HTTPS" if req.is_https else "HTTP",
             "src": f"{req.src_ip}:{req.src_port}",
             "request": {
                 "method": req.method,
