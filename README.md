@@ -88,6 +88,18 @@ export http_proxy=http://127.0.0.1:9090
 export https_proxy=http://127.0.0.1:9090
 ```
 
+## Output Colors
+
+In `pretty` format, the separator lines and section headers are colorized:
+
+| Color | Used for |
+|-------|----------|
+| Cyan | Request separator lines and `REQUEST #N` header |
+| Green | Response separator lines and `RESPONSE #N` header (successful response) |
+| Red | Response separator line and `RESPONSE #N` header when there is no response (upstream error) |
+
+Method/URL, headers, and body text are uncolored plain text. The `json` format and log file output have no color codes.
+
 ## Filtering
 
 Filters narrow which requests are proxied. Requests that do not match all active filters receive a `403` response.
